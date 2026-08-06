@@ -3,42 +3,45 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Table/column names match the existing EF Core-created MySQL schema exactly
-// (same DB is reused as-is, no migration) - only the Prisma model names are
-// PascalCase-singular for a nicer application-code feel.
+// Originally a 1:1 mirror of the MySQL/EF Core schema; converted to
+// PostgreSQL for free-tier hosting (Neon). @db.LongText has no Postgres
+// equivalent - String with no native-type attribute already maps to
+// Postgres `text` by default, so those annotations are simply dropped.
+// DateTime columns use @db.Timestamptz(6) (point-in-time, timezone-aware)
+// instead of MySQL's @db.DateTime(6).
 
 model AdminUser {
   Id                  Int       @id @default(autoincrement())
   Username            String    @unique(map: "IX_AdminUsers_Username") @db.VarChar(255)
-  Email               String    @db.LongText
-  PasswordHash        String    @db.LongText
-  Role                String    @db.LongText
-  CreatedAt           DateTime  @db.DateTime(6)
-  LastLoginAt         DateTime? @db.DateTime(6)
-  ResetToken          String?   @db.LongText
-  ResetTokenExpiresAt DateTime? @db.DateTime(6)
-  AvatarUrl           String?   @db.LongText
+  Email               String
+  PasswordHash        String
+  Role                String
+  CreatedAt           DateTime  @db.Timestamptz(6)
+  LastLoginAt         DateTime? @db.Timestamptz(6)
+  ResetToken          String?
+  ResetTokenExpiresAt DateTime? @db.Timestamptz(6)
+  AvatarUrl           String?
 
   @@map("adminusers")
 }
 
 model Appointment {
   Id                 Int          @id @default(autoincrement())
-  Name               String       @db.LongText
-  Address            String       @db.LongText
-  PhoneNo            String       @db.LongText
-  Email              String?      @db.LongText
+  Name               String
+  Address            String
+  PhoneNo            String
+  Email              String?
   ServiceItemId      Int?
   ServiceItem        ServiceItem? @relation(fields: [ServiceItemId], references: [Id], onDelete: SetNull)
-  CollectionDateTime DateTime     @db.DateTime(6)
-  Description        String?      @db.LongText
+  CollectionDateTime DateTime     @db.Timestamptz(6)
+  Description        String?
   Status             Int
-  CreatedAt          DateTime     @db.DateTime(6)
-  RejectionReason    String?      @db.LongText
+  CreatedAt          DateTime     @db.Timestamptz(6)
+  RejectionReason    String?
 
   @@index([ServiceItemId], map: "IX_Appointments_ServiceItemId")
   @@map("appointments")
@@ -46,37 +49,37 @@ model Appointment {
 
 model B2BInquiry {
   Id               Int      @id @default(autoincrement())
-  OrganizationName String   @db.LongText
-  ContactPerson    String   @db.LongText
-  Email            String   @db.LongText
-  Phone            String   @db.LongText
+  OrganizationName String
+  ContactPerson    String
+  Email            String
+  Phone            String
   BusinessType     Int
-  City             String?  @db.LongText
-  Message          String?  @db.LongText
+  City             String?
+  Message          String?
   Status           Int
-  CreatedAt        DateTime @db.DateTime(6)
+  CreatedAt        DateTime @db.Timestamptz(6)
 
   @@map("b2binquiries")
 }
 
 model CallbackRequest {
   Id          Int      @id @default(autoincrement())
-  Name        String?  @db.LongText
-  PhoneNo     String   @db.LongText
+  Name        String?
+  PhoneNo     String
   IsContacted Boolean
-  CreatedAt   DateTime @db.DateTime(6)
+  CreatedAt   DateTime @db.Timestamptz(6)
 
   @@map("callbackrequests")
 }
 
 model ContactMessage {
   Id        Int      @id @default(autoincrement())
-  Name      String   @db.LongText
-  Email     String?  @db.LongText
-  Phone     String?  @db.LongText
-  Message   String   @db.LongText
+  Name      String
+  Email     String?
+  Phone     String?
+  Message   String
   IsRead    Boolean
-  CreatedAt DateTime @db.DateTime(6)
+  CreatedAt DateTime @db.Timestamptz(6)
 
   @@map("contactmessages")
 }
@@ -85,11 +88,11 @@ model ContentBlock {
   Id        Int      @id @default(autoincrement())
   PageSlug  String   @db.VarChar(255)
   Key       String   @db.VarChar(255)
-  Title     String?  @db.LongText
-  Body      String?  @db.LongText
-  ImageUrl  String?  @db.LongText
+  Title     String?
+  Body      String?
+  ImageUrl  String?
   SortOrder Int
-  UpdatedAt DateTime @db.DateTime(6)
+  UpdatedAt DateTime @db.Timestamptz(6)
 
   @@unique([PageSlug, Key], map: "IX_ContentBlocks_PageSlug_Key")
   @@map("contentblocks")
@@ -97,10 +100,10 @@ model ContentBlock {
 
 model FeatureCard {
   Id        Int     @id @default(autoincrement())
-  PageSlug  String  @db.LongText
-  IconKey   String  @db.LongText
-  Title     String  @db.LongText
-  Body      String? @db.LongText
+  PageSlug  String
+  IconKey   String
+  Title     String
+  Body      String?
   SortOrder Int
   IsActive  Boolean
 
@@ -108,10 +111,10 @@ model FeatureCard {
 }
 
 model ServiceCategory {
-  Id          Int            @id @default(autoincrement())
-  Name        String         @db.LongText
-  Slug        String         @unique(map: "IX_ServiceCategories_Slug") @db.VarChar(255)
-  Description String?        @db.LongText
+  Id          Int           @id @default(autoincrement())
+  Name        String
+  Slug        String        @unique(map: "IX_ServiceCategories_Slug") @db.VarChar(255)
+  Description String?
   SortOrder   Int
   IsActive    Boolean
   Items       ServiceItem[]
@@ -120,16 +123,16 @@ model ServiceCategory {
 }
 
 model ServiceItem {
-  Id                Int              @id @default(autoincrement())
+  Id                Int             @id @default(autoincrement())
   ServiceCategoryId Int
-  ServiceCategory   ServiceCategory  @relation(fields: [ServiceCategoryId], references: [Id], onDelete: Cascade)
-  Name              String           @db.LongText
-  Description       String?          @db.LongText
-  Price             Decimal          @db.Decimal(10, 2)
+  ServiceCategory   ServiceCategory @relation(fields: [ServiceCategoryId], references: [Id], onDelete: Cascade)
+  Name              String
+  Description       String?
+  Price             Decimal         @db.Decimal(10, 2)
   SortOrder         Int
   IsActive          Boolean
   DiscountPercent   Int?
-  OfferBadgeText    String?          @db.LongText
+  OfferBadgeText    String?
   Appointments      Appointment[]
 
   @@index([ServiceCategoryId], map: "IX_ServiceItems_ServiceCategoryId")
@@ -138,9 +141,9 @@ model ServiceItem {
 
 model SiteImage {
   Id        Int     @id @default(autoincrement())
-  Section   String  @db.LongText
-  Url       String  @db.LongText
-  AltText   String? @db.LongText
+  Section   String
+  Url       String
+  AltText   String?
   SortOrder Int
   IsActive  Boolean
 
@@ -149,13 +152,13 @@ model SiteImage {
 
 model Testimonial {
   Id             Int      @id @default(autoincrement())
-  CustomerName   String   @db.LongText
-  RoleOrLocation String?  @db.LongText
-  Quote          String   @db.LongText
+  CustomerName   String
+  RoleOrLocation String?
+  Quote          String
   Rating         Int
   SortOrder      Int
   IsActive       Boolean
-  CreatedAt      DateTime @db.DateTime(6)
+  CreatedAt      DateTime @db.Timestamptz(6)
 
   @@map("testimonials")
 }
