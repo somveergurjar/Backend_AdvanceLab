@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { getOrNotFound } from "../lib/getOrNotFound";
+import { upsertTestimonialSchema } from "../lib/schemas";
 import type { Testimonial } from "@prisma/client";
 
 export const testimonialsRouter = Router();
@@ -29,17 +32,17 @@ testimonialsRouter.get("/all", requireAuth, async (_req, res) => {
   res.json(testimonials.map(toResponse));
 });
 
-testimonialsRouter.post("/", requireAuth, async (req, res) => {
-  const { customerName, roleOrLocation, quote, rating, sortOrder, isActive } = req.body ?? {};
+testimonialsRouter.post("/", requireAuth, validateBody(upsertTestimonialSchema), async (req, res) => {
+  const { customerName, roleOrLocation, quote, rating, sortOrder, isActive } = req.body;
 
   const testimonial = await prisma.testimonial.create({
     data: {
       CustomerName: customerName,
       RoleOrLocation: roleOrLocation ?? null,
       Quote: quote,
-      Rating: rating ?? 5,
-      SortOrder: sortOrder ?? 0,
-      IsActive: isActive ?? true,
+      Rating: rating,
+      SortOrder: sortOrder,
+      IsActive: isActive,
       CreatedAt: new Date(),
     },
   });
@@ -47,21 +50,21 @@ testimonialsRouter.post("/", requireAuth, async (req, res) => {
   res.json(toResponse(testimonial));
 });
 
-testimonialsRouter.put("/:id", requireAuth, async (req, res) => {
+testimonialsRouter.put("/:id", requireAuth, validateBody(upsertTestimonialSchema), async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.testimonial.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.testimonial.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
-  const { customerName, roleOrLocation, quote, rating, sortOrder, isActive } = req.body ?? {};
+  const { customerName, roleOrLocation, quote, rating, sortOrder, isActive } = req.body;
   await prisma.testimonial.update({
     where: { Id: id },
     data: {
       CustomerName: customerName,
       RoleOrLocation: roleOrLocation ?? null,
       Quote: quote,
-      Rating: rating ?? 5,
-      SortOrder: sortOrder ?? 0,
-      IsActive: isActive ?? true,
+      Rating: rating,
+      SortOrder: sortOrder,
+      IsActive: isActive,
     },
   });
 
@@ -70,8 +73,8 @@ testimonialsRouter.put("/:id", requireAuth, async (req, res) => {
 
 testimonialsRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.testimonial.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.testimonial.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.testimonial.delete({ where: { Id: id } });
   res.status(204).end();

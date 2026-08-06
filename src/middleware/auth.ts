@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { verifyToken } from "../services/tokenService";
+import { AUTH_COOKIE_NAME } from "../lib/authCookie";
 
 export interface AuthedRequest extends Request {
   userId?: number;
@@ -8,13 +9,13 @@ export interface AuthedRequest extends Request {
 }
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
+  const token = req.cookies?.[AUTH_COOKIE_NAME];
+  if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
-    const payload = verifyToken(header.slice("Bearer ".length));
+    const payload = verifyToken(token);
     req.userId = Number(payload.uid);
     req.username = payload.sub;
     req.role = payload.role;

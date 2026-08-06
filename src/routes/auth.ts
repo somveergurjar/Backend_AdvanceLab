@@ -5,11 +5,21 @@ import { prisma } from "../lib/prisma";
 import { createToken } from "../services/tokenService";
 import { sendEmail } from "../services/emailService";
 import { requireAuth, type AuthedRequest } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { loginLimiter, forgotPasswordLimiter } from "../middleware/rateLimit";
+import { setAuthCookie, clearAuthCookie } from "../lib/authCookie";
+import {
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  changePasswordSchema,
+  updateProfileSchema,
+} from "../lib/schemas";
 
 export const authRouter = Router();
 
-authRouter.post("/login", async (req, res) => {
-  const { username, password } = req.body ?? {};
+authRouter.post("/login", loginLimiter, validateBody(loginSchema), async (req, res) => {
+  const { username, password } = req.body;
 
   const user = await prisma.adminUser.findUnique({ where: { Username: username } });
   if (!user || !bcrypt.compareSync(password, user.PasswordHash)) {
@@ -19,8 +29,12 @@ authRouter.post("/login", async (req, res) => {
   await prisma.adminUser.update({ where: { Id: user.Id }, data: { LastLoginAt: new Date() } });
 
   const { token, expiresAt } = createToken(user);
+  setAuthCookie(res, token, expiresAt);
+
+  // The token itself never goes in the response body - it lives only in the
+  // httpOnly cookie, unreadable to JS (and therefore to XSS). The frontend
+  // only needs this display info to render the logged-in UI state.
   res.json({
-    token,
     username: user.Username,
     role: user.Role,
     avatarUrl: user.AvatarUrl,
@@ -28,10 +42,15 @@ authRouter.post("/login", async (req, res) => {
   });
 });
 
+authRouter.post("/logout", (_req, res) => {
+  clearAuthCookie(res);
+  res.status(204).end();
+});
+
 // Always returns the same generic response whether or not the email matches an
 // account, so this endpoint can't be used to discover which emails are registered.
-authRouter.post("/forgot-password", async (req, res) => {
-  const { email } = req.body ?? {};
+authRouter.post("/forgot-password", forgotPasswordLimiter, validateBody(forgotPasswordSchema), async (req, res) => {
+  const { email } = req.body;
 
   const user = await prisma.adminUser.findFirst({ where: { Email: email } });
   if (user) {
@@ -55,12 +74,8 @@ authRouter.post("/forgot-password", async (req, res) => {
   res.json({ message: "If that email is registered, a reset link has been sent." });
 });
 
-authRouter.post("/reset-password", async (req, res) => {
-  const { token, newPassword } = req.body ?? {};
-
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ message: "Password must be at least 6 characters." });
-  }
+authRouter.post("/reset-password", validateBody(resetPasswordSchema), async (req, res) => {
+  const { token, newPassword } = req.body;
 
   const user = await prisma.adminUser.findFirst({ where: { ResetToken: token } });
   if (!user || !user.ResetTokenExpiresAt || user.ResetTokenExpiresAt < new Date()) {
@@ -81,12 +96,8 @@ authRouter.post("/reset-password", async (req, res) => {
 
 // Authenticated: lets an already-logged-in admin change their own password,
 // separate from the token-based reset flow used for a forgotten password.
-authRouter.post("/change-password", requireAuth, async (req: AuthedRequest, res) => {
-  const { currentPassword, newPassword } = req.body ?? {};
-
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ message: "Password must be at least 6 characters." });
-  }
+authRouter.post("/change-password", requireAuth, validateBody(changePasswordSchema), async (req: AuthedRequest, res) => {
+  const { currentPassword, newPassword } = req.body;
 
   const user = await prisma.adminUser.findUnique({ where: { Id: req.userId } });
   if (!user || !bcrypt.compareSync(currentPassword, user.PasswordHash)) {
@@ -109,12 +120,8 @@ authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ username: user.Username, email: user.Email, role: user.Role, avatarUrl: user.AvatarUrl });
 });
 
-authRouter.put("/profile", requireAuth, async (req: AuthedRequest, res) => {
-  const { username, email, avatarUrl } = req.body ?? {};
-
-  if (!username?.trim() || !email?.trim()) {
-    return res.status(400).json({ message: "Username and email are required." });
-  }
+authRouter.put("/profile", requireAuth, validateBody(updateProfileSchema), async (req: AuthedRequest, res) => {
+  const { username, email, avatarUrl } = req.body;
 
   const user = await prisma.adminUser.findUnique({ where: { Id: req.userId } });
   if (!user) return res.status(404).end();

@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { getOrNotFound } from "../lib/getOrNotFound";
+import { upsertServiceCategorySchema, upsertServiceItemSchema } from "../lib/schemas";
 import type { ServiceItem } from "@prisma/client";
 
 export const servicesRouter = Router();
@@ -38,25 +41,25 @@ servicesRouter.get("/categories", async (_req, res) => {
 });
 
 // Admin only: create/update a category.
-servicesRouter.post("/categories", requireAuth, async (req, res) => {
-  const { name, slug, description, sortOrder } = req.body ?? {};
+servicesRouter.post("/categories", requireAuth, validateBody(upsertServiceCategorySchema), async (req, res) => {
+  const { name, slug, description, sortOrder } = req.body;
 
   const category = await prisma.serviceCategory.create({
-    data: { Name: name, Slug: slug, Description: description ?? null, SortOrder: sortOrder ?? 0, IsActive: true },
+    data: { Name: name, Slug: slug, Description: description ?? null, SortOrder: sortOrder, IsActive: true },
   });
 
   res.json({ id: category.Id, name: category.Name, slug: category.Slug, description: category.Description, sortOrder: category.SortOrder, items: [] });
 });
 
-servicesRouter.put("/categories/:id", requireAuth, async (req, res) => {
+servicesRouter.put("/categories/:id", requireAuth, validateBody(upsertServiceCategorySchema), async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.serviceCategory.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.serviceCategory.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
-  const { name, slug, description, sortOrder } = req.body ?? {};
+  const { name, slug, description, sortOrder } = req.body;
   await prisma.serviceCategory.update({
     where: { Id: id },
-    data: { Name: name, Slug: slug, Description: description ?? null, SortOrder: sortOrder ?? 0 },
+    data: { Name: name, Slug: slug, Description: description ?? null, SortOrder: sortOrder },
   });
 
   res.status(204).end();
@@ -64,24 +67,16 @@ servicesRouter.put("/categories/:id", requireAuth, async (req, res) => {
 
 servicesRouter.delete("/categories/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.serviceCategory.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.serviceCategory.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.serviceCategory.delete({ where: { Id: id } });
   res.status(204).end();
 });
 
-function validateDiscount(discountPercent: number | null | undefined) {
-  return discountPercent == null || (discountPercent >= 0 && discountPercent <= 100);
-}
-
 // Admin only: create/update/delete individual test items within a category.
-servicesRouter.post("/items", requireAuth, async (req, res) => {
-  const { serviceCategoryId, name, description, price, sortOrder, isActive, discountPercent, offerBadgeText } = req.body ?? {};
-
-  if (!validateDiscount(discountPercent)) {
-    return res.status(400).json({ message: "Discount percent must be between 0 and 100." });
-  }
+servicesRouter.post("/items", requireAuth, validateBody(upsertServiceItemSchema), async (req, res) => {
+  const { serviceCategoryId, name, description, price, sortOrder, isActive, discountPercent, offerBadgeText } = req.body;
 
   const item = await prisma.serviceItem.create({
     data: {
@@ -89,8 +84,8 @@ servicesRouter.post("/items", requireAuth, async (req, res) => {
       Name: name,
       Description: description ?? null,
       Price: price,
-      SortOrder: sortOrder ?? 0,
-      IsActive: isActive ?? true,
+      SortOrder: sortOrder,
+      IsActive: isActive,
       DiscountPercent: discountPercent ?? null,
       OfferBadgeText: offerBadgeText ?? null,
     },
@@ -99,17 +94,12 @@ servicesRouter.post("/items", requireAuth, async (req, res) => {
   res.json(itemResponse(item));
 });
 
-servicesRouter.put("/items/:id", requireAuth, async (req, res) => {
+servicesRouter.put("/items/:id", requireAuth, validateBody(upsertServiceItemSchema), async (req, res) => {
   const id = Number(req.params.id);
-  const { serviceCategoryId, name, description, price, sortOrder, isActive, discountPercent, offerBadgeText } = req.body ?? {};
+  const existing = await getOrNotFound(res, () => prisma.serviceItem.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
-  if (!validateDiscount(discountPercent)) {
-    return res.status(400).json({ message: "Discount percent must be between 0 and 100." });
-  }
-
-  const existing = await prisma.serviceItem.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
-
+  const { serviceCategoryId, name, description, price, sortOrder, isActive, discountPercent, offerBadgeText } = req.body;
   await prisma.serviceItem.update({
     where: { Id: id },
     data: {
@@ -117,8 +107,8 @@ servicesRouter.put("/items/:id", requireAuth, async (req, res) => {
       Name: name,
       Description: description ?? null,
       Price: price,
-      SortOrder: sortOrder ?? 0,
-      IsActive: isActive ?? true,
+      SortOrder: sortOrder,
+      IsActive: isActive,
       DiscountPercent: discountPercent ?? null,
       OfferBadgeText: offerBadgeText ?? null,
     },
@@ -129,8 +119,8 @@ servicesRouter.put("/items/:id", requireAuth, async (req, res) => {
 
 servicesRouter.delete("/items/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.serviceItem.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.serviceItem.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.serviceItem.delete({ where: { Id: id } });
   res.status(204).end();

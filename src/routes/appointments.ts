@@ -2,7 +2,11 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { sendEmail } from "../services/emailService";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { publicFormLimiter } from "../middleware/rateLimit";
+import { getOrNotFound } from "../lib/getOrNotFound";
 import { AppointmentStatus } from "../lib/enums";
+import { createAppointmentSchema, updateAppointmentStatusSchema } from "../lib/schemas";
 import type { Appointment, ServiceItem } from "@prisma/client";
 
 export const appointmentsRouter = Router();
@@ -25,22 +29,18 @@ function toResponse(a: Appointment, serviceItemName: string | null) {
 }
 
 // Public: anyone can book an appointment, no auth required.
-appointmentsRouter.post("/", async (req, res) => {
-  const { name, address, phoneNo, email, serviceItemId, collectionDateTime, description } = req.body ?? {};
-
-  if (!name?.trim() || !address?.trim() || !phoneNo?.trim()) {
-    return res.status(400).json({ message: "Name, address and phone number are required." });
-  }
+appointmentsRouter.post("/", publicFormLimiter, validateBody(createAppointmentSchema), async (req, res) => {
+  const { name, address, phoneNo, email, serviceItemId, collectionDateTime, description } = req.body;
 
   const appointment = await prisma.appointment.create({
     data: {
-      Name: name.trim(),
-      Address: address.trim(),
-      PhoneNo: phoneNo.trim(),
-      Email: email?.trim() || null,
+      Name: name,
+      Address: address,
+      PhoneNo: phoneNo,
+      Email: email || null,
       ServiceItemId: serviceItemId ?? null,
-      CollectionDateTime: new Date(collectionDateTime),
-      Description: description?.trim() || null,
+      CollectionDateTime: collectionDateTime,
+      Description: description || null,
       Status: AppointmentStatus.toValue("Pending"),
       CreatedAt: new Date(),
     },
@@ -78,22 +78,22 @@ appointmentsRouter.get("/", requireAuth, async (_req, res) => {
 
 // Admin only: update status (Pending -> Confirmed -> Completed / Cancelled).
 // Cancelled (i.e. "reject") requires a reason so the patient can be told why.
-appointmentsRouter.patch("/:id/status", requireAuth, async (req, res) => {
-  const { status, rejectionReason } = req.body ?? {};
+appointmentsRouter.patch("/:id/status", requireAuth, validateBody(updateAppointmentStatusSchema), async (req, res) => {
+  const { status, rejectionReason } = req.body;
 
   if (status === "Cancelled" && !rejectionReason?.trim()) {
     return res.status(400).json({ message: "A reason is required when rejecting an appointment." });
   }
 
   const id = Number(req.params.id);
-  const existing = await prisma.appointment.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.appointment.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   const appointment = await prisma.appointment.update({
     where: { Id: id },
     data: {
       Status: AppointmentStatus.toValue(status),
-      RejectionReason: status === "Cancelled" ? rejectionReason.trim() : null,
+      RejectionReason: status === "Cancelled" ? rejectionReason!.trim() : null,
     },
   });
 
@@ -116,8 +116,8 @@ appointmentsRouter.patch("/:id/status", requireAuth, async (req, res) => {
 // Admin only: delete an appointment record.
 appointmentsRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.appointment.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.appointment.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.appointment.delete({ where: { Id: id } });
   res.status(204).end();

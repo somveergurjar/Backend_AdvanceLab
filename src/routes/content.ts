@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { getOrNotFound } from "../lib/getOrNotFound";
+import { upsertContentBlockSchema, upsertSiteImageSchema } from "../lib/schemas";
 import type { ContentBlock, SiteImage } from "@prisma/client";
 
 export const contentRouter = Router();
@@ -28,8 +31,8 @@ contentRouter.get("/blocks", requireAuth, async (_req, res) => {
   res.json(blocks.map(blockResponse));
 });
 
-contentRouter.post("/blocks", requireAuth, async (req, res) => {
-  const { pageSlug, key, title, body, imageUrl, sortOrder } = req.body ?? {};
+contentRouter.post("/blocks", requireAuth, validateBody(upsertContentBlockSchema), async (req, res) => {
+  const { pageSlug, key, title, body, imageUrl, sortOrder } = req.body;
 
   const existing = await prisma.contentBlock.findFirst({ where: { PageSlug: pageSlug, Key: key } });
 
@@ -44,8 +47,8 @@ contentRouter.post("/blocks", requireAuth, async (req, res) => {
 
 contentRouter.delete("/blocks/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.contentBlock.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.contentBlock.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.contentBlock.delete({ where: { Id: id } });
   res.status(204).end();
@@ -60,11 +63,11 @@ contentRouter.get("/images/:section", async (req, res) => {
   res.json(images.map(imageResponse));
 });
 
-contentRouter.post("/images", requireAuth, async (req, res) => {
-  const { section, url, altText, sortOrder, isActive } = req.body ?? {};
+contentRouter.post("/images", requireAuth, validateBody(upsertSiteImageSchema), async (req, res) => {
+  const { section, url, altText, sortOrder, isActive } = req.body;
 
   const image = await prisma.siteImage.create({
-    data: { Section: section, Url: url, AltText: altText ?? null, SortOrder: sortOrder ?? 0, IsActive: isActive ?? true },
+    data: { Section: section, Url: url, AltText: altText ?? null, SortOrder: sortOrder, IsActive: isActive },
   });
 
   res.json(imageResponse(image));
@@ -72,8 +75,8 @@ contentRouter.post("/images", requireAuth, async (req, res) => {
 
 contentRouter.delete("/images/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.siteImage.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.siteImage.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.siteImage.delete({ where: { Id: id } });
   res.status(204).end();

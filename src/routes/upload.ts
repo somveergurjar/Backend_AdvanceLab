@@ -7,7 +7,10 @@ import { requireAuth } from "../middleware/auth";
 
 export const uploadRouter = Router();
 
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".jfif", ".pjpeg", ".pjp", ".png", ".webp", ".gif", ".bmp", ".svg"];
+// SVG is deliberately excluded: unlike raster formats, an SVG file can embed
+// <script>, making this endpoint a stored-XSS vector since uploads are
+// served back out as static files.
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".jfif", ".pjpeg", ".pjp", ".png", ".webp", ".gif", ".bmp"];
 const UPLOADS_ROOT = path.join(__dirname, "..", "..", "wwwroot", "uploads");
 fs.mkdirSync(UPLOADS_ROOT, { recursive: true });
 

@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { publicFormLimiter } from "../middleware/rateLimit";
+import { getOrNotFound } from "../lib/getOrNotFound";
+import { createCallbackRequestSchema } from "../lib/schemas";
 import type { CallbackRequest } from "@prisma/client";
 
 export const callbackRequestsRouter = Router();
@@ -10,15 +14,11 @@ function toResponse(r: CallbackRequest) {
 }
 
 // Public: the home page's "Enter your number, we'll call you back" widget.
-callbackRequestsRouter.post("/", async (req, res) => {
-  const { name, phoneNo } = req.body ?? {};
-
-  if (!phoneNo?.trim() || !/^\d{10}$/.test(phoneNo.trim())) {
-    return res.status(400).json({ message: "Enter a valid 10-digit phone number." });
-  }
+callbackRequestsRouter.post("/", publicFormLimiter, validateBody(createCallbackRequestSchema), async (req, res) => {
+  const { name, phoneNo } = req.body;
 
   const callback = await prisma.callbackRequest.create({
-    data: { Name: name?.trim() || null, PhoneNo: phoneNo.trim(), IsContacted: false, CreatedAt: new Date() },
+    data: { Name: name || null, PhoneNo: phoneNo, IsContacted: false, CreatedAt: new Date() },
   });
 
   res.json(toResponse(callback));
@@ -32,8 +32,8 @@ callbackRequestsRouter.get("/", requireAuth, async (_req, res) => {
 
 callbackRequestsRouter.patch("/:id/contacted", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.callbackRequest.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.callbackRequest.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.callbackRequest.update({ where: { Id: id }, data: { IsContacted: true } });
   res.status(204).end();
@@ -41,8 +41,8 @@ callbackRequestsRouter.patch("/:id/contacted", requireAuth, async (req, res) => 
 
 callbackRequestsRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.callbackRequest.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.callbackRequest.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.callbackRequest.delete({ where: { Id: id } });
   res.status(204).end();

@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { publicFormLimiter } from "../middleware/rateLimit";
+import { getOrNotFound } from "../lib/getOrNotFound";
 import { B2BBusinessType, B2BInquiryStatus } from "../lib/enums";
+import { createB2BInquirySchema, updateB2BStatusSchema } from "../lib/schemas";
 import type { B2BInquiry } from "@prisma/client";
 
 export const b2bInquiriesRouter = Router();
@@ -22,22 +26,18 @@ function toResponse(i: B2BInquiry) {
 }
 
 // Public: any hospital/clinic/corporate can submit a partnership inquiry.
-b2bInquiriesRouter.post("/", async (req, res) => {
-  const { organizationName, contactPerson, email, phone, businessType, city, message } = req.body ?? {};
-
-  if (!organizationName?.trim() || !contactPerson?.trim() || !email?.trim() || !phone?.trim()) {
-    return res.status(400).json({ message: "Organization name, contact person, email and phone are required." });
-  }
+b2bInquiriesRouter.post("/", publicFormLimiter, validateBody(createB2BInquirySchema), async (req, res) => {
+  const { organizationName, contactPerson, email, phone, businessType, city, message } = req.body;
 
   const inquiry = await prisma.b2BInquiry.create({
     data: {
-      OrganizationName: organizationName.trim(),
-      ContactPerson: contactPerson.trim(),
-      Email: email.trim(),
-      Phone: phone.trim(),
+      OrganizationName: organizationName,
+      ContactPerson: contactPerson,
+      Email: email,
+      Phone: phone,
       BusinessType: B2BBusinessType.toValue(businessType),
-      City: city?.trim() || null,
-      Message: message?.trim() || null,
+      City: city || null,
+      Message: message || null,
       Status: B2BInquiryStatus.toValue("New"),
       CreatedAt: new Date(),
     },
@@ -52,22 +52,22 @@ b2bInquiriesRouter.get("/", requireAuth, async (_req, res) => {
   res.json(inquiries.map(toResponse));
 });
 
-b2bInquiriesRouter.patch("/:id/status", requireAuth, async (req, res) => {
+b2bInquiriesRouter.patch("/:id/status", requireAuth, validateBody(updateB2BStatusSchema), async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.b2BInquiry.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.b2BInquiry.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.b2BInquiry.update({
     where: { Id: id },
-    data: { Status: B2BInquiryStatus.toValue(req.body?.status) },
+    data: { Status: B2BInquiryStatus.toValue(req.body.status) },
   });
   res.status(204).end();
 });
 
 b2bInquiriesRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.b2BInquiry.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.b2BInquiry.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.b2BInquiry.delete({ where: { Id: id } });
   res.status(204).end();

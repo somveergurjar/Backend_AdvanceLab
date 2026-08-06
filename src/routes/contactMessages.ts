@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { publicFormLimiter } from "../middleware/rateLimit";
+import { getOrNotFound } from "../lib/getOrNotFound";
+import { createContactMessageSchema } from "../lib/schemas";
 import type { ContactMessage } from "@prisma/client";
 
 export const contactMessagesRouter = Router();
@@ -10,15 +14,11 @@ function toResponse(m: ContactMessage) {
 }
 
 // Public: anyone can submit a message via the Contact Us form.
-contactMessagesRouter.post("/", async (req, res) => {
-  const { name, email, phone, message } = req.body ?? {};
-
-  if (!name?.trim() || !message?.trim()) {
-    return res.status(400).json({ message: "Name and message are required." });
-  }
+contactMessagesRouter.post("/", publicFormLimiter, validateBody(createContactMessageSchema), async (req, res) => {
+  const { name, email, phone, message } = req.body;
 
   const entity = await prisma.contactMessage.create({
-    data: { Name: name.trim(), Email: email?.trim() || null, Phone: phone?.trim() || null, Message: message.trim(), IsRead: false, CreatedAt: new Date() },
+    data: { Name: name, Email: email || null, Phone: phone || null, Message: message, IsRead: false, CreatedAt: new Date() },
   });
 
   res.json(toResponse(entity));
@@ -32,8 +32,8 @@ contactMessagesRouter.get("/", requireAuth, async (_req, res) => {
 
 contactMessagesRouter.patch("/:id/read", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.contactMessage.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.contactMessage.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.contactMessage.update({ where: { Id: id }, data: { IsRead: true } });
   res.status(204).end();
@@ -41,8 +41,8 @@ contactMessagesRouter.patch("/:id/read", requireAuth, async (req, res) => {
 
 contactMessagesRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.contactMessage.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.contactMessage.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.contactMessage.delete({ where: { Id: id } });
   res.status(204).end();

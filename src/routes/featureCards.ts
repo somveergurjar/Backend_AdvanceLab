@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { getOrNotFound } from "../lib/getOrNotFound";
+import { upsertFeatureCardSchema } from "../lib/schemas";
 import type { FeatureCard } from "@prisma/client";
 
 export const featureCardsRouter = Router();
@@ -27,25 +30,25 @@ featureCardsRouter.get("/:pageSlug/all", requireAuth, async (req, res) => {
   res.json(cards.map(toResponse));
 });
 
-featureCardsRouter.post("/", requireAuth, async (req, res) => {
-  const { pageSlug, iconKey, title, body, sortOrder, isActive } = req.body ?? {};
+featureCardsRouter.post("/", requireAuth, validateBody(upsertFeatureCardSchema), async (req, res) => {
+  const { pageSlug, iconKey, title, body, sortOrder, isActive } = req.body;
 
   const card = await prisma.featureCard.create({
-    data: { PageSlug: pageSlug, IconKey: iconKey, Title: title, Body: body ?? null, SortOrder: sortOrder ?? 0, IsActive: isActive ?? true },
+    data: { PageSlug: pageSlug, IconKey: iconKey, Title: title, Body: body ?? null, SortOrder: sortOrder, IsActive: isActive },
   });
 
   res.json(toResponse(card));
 });
 
-featureCardsRouter.put("/:id", requireAuth, async (req, res) => {
+featureCardsRouter.put("/:id", requireAuth, validateBody(upsertFeatureCardSchema), async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.featureCard.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.featureCard.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
-  const { pageSlug, iconKey, title, body, sortOrder, isActive } = req.body ?? {};
+  const { pageSlug, iconKey, title, body, sortOrder, isActive } = req.body;
   await prisma.featureCard.update({
     where: { Id: id },
-    data: { PageSlug: pageSlug, IconKey: iconKey, Title: title, Body: body ?? null, SortOrder: sortOrder ?? 0, IsActive: isActive ?? true },
+    data: { PageSlug: pageSlug, IconKey: iconKey, Title: title, Body: body ?? null, SortOrder: sortOrder, IsActive: isActive },
   });
 
   res.status(204).end();
@@ -53,8 +56,8 @@ featureCardsRouter.put("/:id", requireAuth, async (req, res) => {
 
 featureCardsRouter.delete("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = await prisma.featureCard.findUnique({ where: { Id: id } });
-  if (!existing) return res.status(404).end();
+  const existing = await getOrNotFound(res, () => prisma.featureCard.findUnique({ where: { Id: id } }));
+  if (!existing) return;
 
   await prisma.featureCard.delete({ where: { Id: id } });
   res.status(204).end();
