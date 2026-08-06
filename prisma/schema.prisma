@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Table/column names match the existing EF Core-created MySQL schema exactly
+// (same DB is reused as-is, no migration) - only the Prisma model names are
+// PascalCase-singular for a nicer application-code feel.
+
+model AdminUser {
+  Id                  Int       @id @default(autoincrement())
+  Username            String    @unique(map: "IX_AdminUsers_Username") @db.VarChar(255)
+  Email               String    @db.LongText
+  PasswordHash        String    @db.LongText
+  Role                String    @db.LongText
+  CreatedAt           DateTime  @db.DateTime(6)
+  LastLoginAt         DateTime? @db.DateTime(6)
+  ResetToken          String?   @db.LongText
+  ResetTokenExpiresAt DateTime? @db.DateTime(6)
+  AvatarUrl           String?   @db.LongText
+
+  @@map("adminusers")
+}
+
+model Appointment {
+  Id                 Int          @id @default(autoincrement())
+  Name               String       @db.LongText
+  Address            String       @db.LongText
+  PhoneNo            String       @db.LongText
+  Email              String?      @db.LongText
+  ServiceItemId      Int?
+  ServiceItem        ServiceItem? @relation(fields: [ServiceItemId], references: [Id], onDelete: SetNull)
+  CollectionDateTime DateTime     @db.DateTime(6)
+  Description        String?      @db.LongText
+  Status             Int
+  CreatedAt          DateTime     @db.DateTime(6)
+  RejectionReason    String?      @db.LongText
+
+  @@index([ServiceItemId], map: "IX_Appointments_ServiceItemId")
+  @@map("appointments")
+}
+
+model B2BInquiry {
+  Id               Int      @id @default(autoincrement())
+  OrganizationName String   @db.LongText
+  ContactPerson    String   @db.LongText
+  Email            String   @db.LongText
+  Phone            String   @db.LongText
+  BusinessType     Int
+  City             String?  @db.LongText
+  Message          String?  @db.LongText
+  Status           Int
+  CreatedAt        DateTime @db.DateTime(6)
+
+  @@map("b2binquiries")
+}
+
+model CallbackRequest {
+  Id          Int      @id @default(autoincrement())
+  Name        String?  @db.LongText
+  PhoneNo     String   @db.LongText
+  IsContacted Boolean
+  CreatedAt   DateTime @db.DateTime(6)
+
+  @@map("callbackrequests")
+}
+
+model ContactMessage {
+  Id        Int      @id @default(autoincrement())
+  Name      String   @db.LongText
+  Email     String?  @db.LongText
+  Phone     String?  @db.LongText
+  Message   String   @db.LongText
+  IsRead    Boolean
+  CreatedAt DateTime @db.DateTime(6)
+
+  @@map("contactmessages")
+}
+
+model ContentBlock {
+  Id        Int      @id @default(autoincrement())
+  PageSlug  String   @db.VarChar(255)
+  Key       String   @db.VarChar(255)
+  Title     String?  @db.LongText
+  Body      String?  @db.LongText
+  ImageUrl  String?  @db.LongText
+  SortOrder Int
+  UpdatedAt DateTime @db.DateTime(6)
+
+  @@unique([PageSlug, Key], map: "IX_ContentBlocks_PageSlug_Key")
+  @@map("contentblocks")
+}
+
+model FeatureCard {
+  Id        Int     @id @default(autoincrement())
+  PageSlug  String  @db.LongText
+  IconKey   String  @db.LongText
+  Title     String  @db.LongText
+  Body      String? @db.LongText
+  SortOrder Int
+  IsActive  Boolean
+
+  @@map("featurecards")
+}
+
+model ServiceCategory {
+  Id          Int            @id @default(autoincrement())
+  Name        String         @db.LongText
+  Slug        String         @unique(map: "IX_ServiceCategories_Slug") @db.VarChar(255)
+  Description String?        @db.LongText
+  SortOrder   Int
+  IsActive    Boolean
+  Items       ServiceItem[]
+
+  @@map("servicecategories")
+}
+
+model ServiceItem {
+  Id                Int              @id @default(autoincrement())
+  ServiceCategoryId Int
+  ServiceCategory   ServiceCategory  @relation(fields: [ServiceCategoryId], references: [Id], onDelete: Cascade)
+  Name              String           @db.LongText
+  Description       String?          @db.LongText
+  Price             Decimal          @db.Decimal(10, 2)
+  SortOrder         Int
+  IsActive          Boolean
+  DiscountPercent   Int?
+  OfferBadgeText    String?          @db.LongText
+  Appointments      Appointment[]
+
+  @@index([ServiceCategoryId], map: "IX_ServiceItems_ServiceCategoryId")
+  @@map("serviceitems")
+}
+
+model SiteImage {
+  Id        Int     @id @default(autoincrement())
+  Section   String  @db.LongText
+  Url       String  @db.LongText
+  AltText   String? @db.LongText
+  SortOrder Int
+  IsActive  Boolean
+
+  @@map("siteimages")
+}
+
+model Testimonial {
+  Id             Int      @id @default(autoincrement())
+  CustomerName   String   @db.LongText
+  RoleOrLocation String?  @db.LongText
+  Quote          String   @db.LongText
+  Rating         Int
+  SortOrder      Int
+  IsActive       Boolean
+  CreatedAt      DateTime @db.DateTime(6)
+
+  @@map("testimonials")
+}

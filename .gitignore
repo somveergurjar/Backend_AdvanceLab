@@ -1,16 +1,13 @@
-# .NET
-bin/
-obj/
+node_modules/
+dist/
 
-# Secrets - real config stays local only, use appsettings.example.json as a template
-AdvanceLab.Api/appsettings.json
+# Secrets - real config stays local only, use .env.example as a template
+.env
 
 # Uploaded user content
-AdvanceLab.Api/wwwroot/uploads/*
-!AdvanceLab.Api/wwwroot/uploads/.gitkeep
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep
 
 # OS / IDE
 .DS_Store
 Thumbs.db
-.vs/
-*.user

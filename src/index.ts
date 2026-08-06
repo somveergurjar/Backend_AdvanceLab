@@ -1,0 +1,51 @@
+import "dotenv/config";
+import "express-async-errors";
+import express from "express";
+import cors from "cors";
+import path from "path";
+import { seed } from "./lib/seed";
+import { authRouter } from "./routes/auth";
+import { appointmentsRouter } from "./routes/appointments";
+import { b2bInquiriesRouter } from "./routes/b2bInquiries";
+import { callbackRequestsRouter } from "./routes/callbackRequests";
+import { contactMessagesRouter } from "./routes/contactMessages";
+import { contentRouter } from "./routes/content";
+import { featureCardsRouter } from "./routes/featureCards";
+import { servicesRouter } from "./routes/services";
+import { testimonialsRouter } from "./routes/testimonials";
+import { uploadRouter } from "./routes/upload";
+
+const app = express();
+const port = Number(process.env.PORT ?? 5081);
+
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "..", "wwwroot", "uploads")));
+
+app.use("/api/auth", authRouter);
+app.use("/api/appointments", appointmentsRouter);
+app.use("/api/b2b-inquiries", b2bInquiriesRouter);
+app.use("/api/callback-requests", callbackRequestsRouter);
+app.use("/api/contact-messages", contactMessagesRouter);
+app.use("/api/content", contentRouter);
+app.use("/api/features", featureCardsRouter);
+app.use("/api/services", servicesRouter);
+app.use("/api/testimonials", testimonialsRouter);
+app.use("/api/upload", uploadRouter);
+
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err);
+  res.status(500).json({ message: "An unexpected error occurred." });
+});
+
+seed()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`AdvanceLab API (Node) listening on http://localhost:${port}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to seed database:", err);
+    process.exit(1);
+  });
