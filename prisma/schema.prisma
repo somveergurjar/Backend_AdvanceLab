@@ -104,6 +104,7 @@ model FeatureCard {
   IconKey   String
   Title     String
   Body      String?
+  ImageUrl  String?
   SortOrder Int
   IsActive  Boolean
 
@@ -115,6 +116,7 @@ model ServiceCategory {
   Name        String
   Slug        String        @unique(map: "IX_ServiceCategories_Slug") @db.VarChar(255)
   Description String?
+  ImageUrl    String?
   SortOrder   Int
   IsActive    Boolean
   Items       ServiceItem[]
@@ -156,6 +158,7 @@ model Testimonial {
   RoleOrLocation String?
   Quote          String
   Rating         Int
+  ImageUrl       String?
   SortOrder      Int
   IsActive       Boolean
   CreatedAt      DateTime @db.Timestamptz(6)

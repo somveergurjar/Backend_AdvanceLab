@@ -29,7 +29,19 @@ app.use(helmet());
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "..", "wwwroot", "uploads")));
+// Helmet's default Cross-Origin-Resource-Policy is "same-origin", which
+// silently blocks <img src> loads from a different origin (the SPA and API
+// are separate origins both in local dev - :5173 vs :5080 - and in
+// production - Vercel vs Render). Uploaded images need to be embeddable
+// cross-origin, so relax the policy just for this static route.
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(path.join(__dirname, "..", "wwwroot", "uploads"))
+);
 
 app.use("/api/auth", authRouter);
 app.use("/api/appointments", appointmentsRouter);

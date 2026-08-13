@@ -15,6 +15,7 @@ function toResponse(t: Testimonial) {
     roleOrLocation: t.RoleOrLocation,
     quote: t.Quote,
     rating: t.Rating,
+    imageUrl: t.ImageUrl,
     sortOrder: t.SortOrder,
     isActive: t.IsActive,
   };
@@ -33,7 +34,7 @@ testimonialsRouter.get("/all", requireAuth, async (_req, res) => {
 });
 
 testimonialsRouter.post("/", requireAuth, validateBody(upsertTestimonialSchema), async (req, res) => {
-  const { customerName, roleOrLocation, quote, rating, sortOrder, isActive } = req.body;
+  const { customerName, roleOrLocation, quote, rating, imageUrl, sortOrder, isActive } = req.body;
 
   const testimonial = await prisma.testimonial.create({
     data: {
@@ -41,6 +42,7 @@ testimonialsRouter.post("/", requireAuth, validateBody(upsertTestimonialSchema),
       RoleOrLocation: roleOrLocation ?? null,
       Quote: quote,
       Rating: rating,
+      ImageUrl: imageUrl ?? null,
       SortOrder: sortOrder,
       IsActive: isActive,
       CreatedAt: new Date(),
@@ -55,7 +57,7 @@ testimonialsRouter.put("/:id", requireAuth, validateBody(upsertTestimonialSchema
   const existing = await getOrNotFound(res, () => prisma.testimonial.findUnique({ where: { Id: id } }));
   if (!existing) return;
 
-  const { customerName, roleOrLocation, quote, rating, sortOrder, isActive } = req.body;
+  const { customerName, roleOrLocation, quote, rating, imageUrl, sortOrder, isActive } = req.body;
   await prisma.testimonial.update({
     where: { Id: id },
     data: {
@@ -63,6 +65,7 @@ testimonialsRouter.put("/:id", requireAuth, validateBody(upsertTestimonialSchema
       RoleOrLocation: roleOrLocation ?? null,
       Quote: quote,
       Rating: rating,
+      ImageUrl: imageUrl ?? null,
       SortOrder: sortOrder,
       IsActive: isActive,
     },

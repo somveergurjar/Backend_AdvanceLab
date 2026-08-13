@@ -95,6 +95,7 @@ export const upsertFeatureCardSchema = z.object({
   iconKey: z.string().trim().min(1),
   title: z.string().trim().min(1),
   body: z.string().trim().nullish(),
+  imageUrl: z.string().trim().nullish(),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
@@ -104,6 +105,7 @@ export const upsertServiceCategorySchema = z.object({
   name: z.string().trim().min(1),
   slug: z.string().trim().min(1),
   description: z.string().trim().nullish(),
+  imageUrl: z.string().trim().nullish(),
   sortOrder: z.number().int().default(0),
 });
 
@@ -124,6 +126,7 @@ export const upsertTestimonialSchema = z.object({
   roleOrLocation: z.string().trim().nullish(),
   quote: z.string().trim().min(1),
   rating: z.number().int().min(1).max(5).default(5),
+  imageUrl: z.string().trim().nullish(),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
