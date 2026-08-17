@@ -34,6 +34,7 @@ servicesRouter.get("/categories", async (_req, res) => {
       name: c.Name,
       slug: c.Slug,
       description: c.Description,
+      details: c.Details,
       imageUrl: c.ImageUrl,
       sortOrder: c.SortOrder,
       items: c.Items.map(itemResponse),
@@ -43,13 +44,13 @@ servicesRouter.get("/categories", async (_req, res) => {
 
 // Admin only: create/update a category.
 servicesRouter.post("/categories", requireAuth, validateBody(upsertServiceCategorySchema), async (req, res) => {
-  const { name, slug, description, imageUrl, sortOrder } = req.body;
+  const { name, slug, description, details, imageUrl, sortOrder } = req.body;
 
   const category = await prisma.serviceCategory.create({
-    data: { Name: name, Slug: slug, Description: description ?? null, ImageUrl: imageUrl ?? null, SortOrder: sortOrder, IsActive: true },
+    data: { Name: name, Slug: slug, Description: description ?? null, Details: details ?? null, ImageUrl: imageUrl ?? null, SortOrder: sortOrder, IsActive: true },
   });
 
-  res.json({ id: category.Id, name: category.Name, slug: category.Slug, description: category.Description, imageUrl: category.ImageUrl, sortOrder: category.SortOrder, items: [] });
+  res.json({ id: category.Id, name: category.Name, slug: category.Slug, description: category.Description, details: category.Details, imageUrl: category.ImageUrl, sortOrder: category.SortOrder, items: [] });
 });
 
 servicesRouter.put("/categories/:id", requireAuth, validateBody(upsertServiceCategorySchema), async (req, res) => {
@@ -57,10 +58,10 @@ servicesRouter.put("/categories/:id", requireAuth, validateBody(upsertServiceCat
   const existing = await getOrNotFound(res, () => prisma.serviceCategory.findUnique({ where: { Id: id } }));
   if (!existing) return;
 
-  const { name, slug, description, imageUrl, sortOrder } = req.body;
+  const { name, slug, description, details, imageUrl, sortOrder } = req.body;
   await prisma.serviceCategory.update({
     where: { Id: id },
-    data: { Name: name, Slug: slug, Description: description ?? null, ImageUrl: imageUrl ?? null, SortOrder: sortOrder },
+    data: { Name: name, Slug: slug, Description: description ?? null, Details: details ?? null, ImageUrl: imageUrl ?? null, SortOrder: sortOrder },
   });
 
   res.status(204).end();

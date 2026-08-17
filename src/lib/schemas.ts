@@ -105,6 +105,7 @@ export const upsertServiceCategorySchema = z.object({
   name: z.string().trim().min(1),
   slug: z.string().trim().min(1),
   description: z.string().trim().nullish(),
+  details: z.string().trim().nullish(),
   imageUrl: z.string().trim().nullish(),
   sortOrder: z.number().int().default(0),
 });
@@ -118,6 +119,15 @@ export const upsertServiceItemSchema = z.object({
   isActive: z.boolean().default(true),
   discountPercent: z.number().int().min(0, "Discount percent must be between 0 and 100.").max(100, "Discount percent must be between 0 and 100.").nullish(),
   offerBadgeText: z.string().trim().nullish(),
+});
+
+// --- Footer links ---
+export const upsertFooterLinkSchema = z.object({
+  groupKey: z.enum(["service", "rnd", "social"]),
+  label: z.string().trim().min(1),
+  url: z.string().trim().min(1),
+  sortOrder: z.number().int().default(0),
+  isActive: z.boolean().default(true),
 });
 
 // --- Testimonials ---

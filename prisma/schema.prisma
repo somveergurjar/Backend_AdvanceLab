@@ -116,6 +116,7 @@ model ServiceCategory {
   Name        String
   Slug        String        @unique(map: "IX_ServiceCategories_Slug") @db.VarChar(255)
   Description String?
+  Details     String?
   ImageUrl    String?
   SortOrder   Int
   IsActive    Boolean
@@ -139,6 +140,18 @@ model ServiceItem {
 
   @@index([ServiceCategoryId], map: "IX_ServiceItems_ServiceCategoryId")
   @@map("serviceitems")
+}
+
+model FooterLink {
+  Id        Int     @id @default(autoincrement())
+  GroupKey  String  @db.VarChar(30)
+  Label     String
+  Url       String
+  SortOrder Int
+  IsActive  Boolean
+
+  @@index([GroupKey], map: "IX_FooterLinks_GroupKey")
+  @@map("footerlinks")
 }
 
 model SiteImage {

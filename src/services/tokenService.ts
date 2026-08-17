@@ -19,6 +19,7 @@ export function createToken(user: AdminUser): { token: string; expiresAt: Date }
     },
     jwtKey,
     {
+      algorithm: "HS256",
       issuer,
       audience,
       expiresIn: `${expiryHours}h`,
@@ -35,5 +36,5 @@ export interface TokenPayload {
 }
 
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, jwtKey, { issuer, audience }) as TokenPayload;
+  return jwt.verify(token, jwtKey, { algorithms: ["HS256"], issuer, audience }) as TokenPayload;
 }

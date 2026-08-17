@@ -112,6 +112,7 @@ export async function seed() {
           1
         ),
         block("about-us", "intro", "About Advance Diagnostic Lab.", "Advance Diagnostic Laboratory, Surat - serving pathology and microbiology diagnostics since 2012.", 1),
+        block("about-us", "facts", "Facts", "Years of Service:14+\nTest Categories:3\nDiagnostic Tests:22+", 0),
         block(
           "about-us",
           "vision",
@@ -169,6 +170,31 @@ export async function seed() {
           1
         ),
         { PageSlug: "research-thrust-areas", Key: "intro", Title: "Thrust Areas of Research", Body: "", SortOrder: 1, UpdatedAt: now },
+      ],
+    });
+  }
+
+  const hasFooterLinks = await prisma.footerLink.count();
+  if (!hasFooterLinks) {
+    const link = (groupKey: string, label: string, url: string, sort: number) => ({
+      GroupKey: groupKey,
+      Label: label,
+      Url: url,
+      SortOrder: sort,
+      IsActive: true,
+    });
+
+    await prisma.footerLink.createMany({
+      data: [
+        link("service", "Pathology", "/services/pathology", 1),
+        link("service", "Microbiology", "/services/microbiology", 2),
+        link("rnd", "Overview", "/research/overview", 1),
+        link("rnd", "Thrust Areas of Research", "/research/thrust-areas", 2),
+        link("rnd", "R&D Activities", "/research/activities", 3),
+        link("social", "Facebook", "https://www.facebook.com/advance.diagnostic.5", 1),
+        link("social", "Twitter", "https://twitter.com/AdvanceLabo", 2),
+        link("social", "LinkedIn", "http://in.linkedin.com/pub/advance-diagnostic-lab/7b/251/b02/", 3),
+        link("social", "Instagram", "#", 4),
       ],
     });
   }
